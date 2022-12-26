@@ -16,14 +16,14 @@ using namespace sensor_msgs;
 using namespace message_filters;
 class SubscribeAndPublish
 {
-public://
-    void callback(const sensor_msgs::ImageConstPtr& msg,const sensor_msgs::ImageConstPtr& msg2,const sensor_msgs::CameraInfoConstPtr& info)
+public:
+    void callback(const sensor_msgs::ImageConstPtr& msg,const sensor_msgs::ImageConstPtr& msg2,const sensor_msgs::CameraInfoConstPtr& info,const sensor_msgs::CameraInfoConstPtr& info2)
     {
-	std::cout<<"Hello Sync"<<std::endl;
        //If encoding is the empty string (the default), the returned CvImage has the same encoding as source. so
       cv_bridge::CvImagePtr ptr = cv_bridge::toCvCopy(msg2,"");
       cv::Mat depth = ptr->image;
-      int scalefactor=1.0000;
+      //only allowed as we use this data only for orbslam and orbslam has in its yaml file a DepthMapFactor: 1000.0 so the data is automatically changed.
+      int scalefactor=1.0;
       depth.convertTo(depth,CV_32FC1);
       depth.convertTo(depth, CV_32FC1,(1.0/scalefactor));
       depth.setTo(std::numeric_limits<float>::quiet_NaN(), depth == 0);
@@ -31,17 +31,15 @@ public://
       //https://github.com/auviitkgp/datasheets/wiki/Image-Transport-with-ROS-Messages-and-OpenCV
       //https://answers.ros.org/question/28144/how-to-change-imageconstptr-data/
       sensor_msgs::ImagePtr depthmsg = ptr->toImageMsg();
-      sensor_msgs::Image rgb_msg=*msg;
-      rgb_msg.header.frame_id="camera_color_optical_frame";
-
-      colpub.publish(rgb_msg);
+      colpub.publish(msg);
       (*depthmsg).header.stamp=(*msg).header.stamp;
       (*depthmsg).encoding="32FC1";
-      (*depthmsg).header.frame_id="camera_color_optical_frame";
       depthpub.publish(depthmsg);
       sensor_msgs::CameraInfo current_rgb_msg=*info;
       current_rgb_msg.header.stamp=msg->header.stamp;
       colinpub.publish(current_rgb_msg);
+      current_rgb_msg=*info2;
+      current_rgb_msg.header.stamp=msg->header.stamp;
       depthinpub.publish(current_rgb_msg);
       if(dbmod == true){ 
         debugfile.open (debugfilename, std::ios::out | std::ios::app);
@@ -50,13 +48,15 @@ public://
       }
     }   
         //this inits the sync variable
-        SubscribeAndPublish(int i):sync(MySyncPolicy(1000),image_sub,image_sub2,cam_info){
+        SubscribeAndPublish(int i):sync(MySyncPolicy(10),image_sub,image_sub2,cam_info,cam_info2){
             std::cout<<"Creating"<<std::endl;          
             std::cout<<"Debugmode: "<<dbmod<<std::endl;
-            image_sub.subscribe(nh, "/camera1uncompressed", 10);
-            image_sub2.subscribe(nh, "/depth2uncompressed32", 10);
-            cam_info.subscribe(nh, "/caminfo", 10);
-            sync.registerCallback(boost::bind(&SubscribeAndPublish::callback,this, _1, _2,_3));
+            image_sub.subscribe(nh, "/camera/color/image_raw", 1);
+            image_sub2.subscribe(nh, "/camera/aligned_depth_to_color/image_raw", 1);
+            cam_info.subscribe(nh, "/camera/color/camera_info", 1);
+            cam_info2.subscribe(nh, "/camera/aligned_depth_to_color/camera_info", 1);
+            //sync.registerCallback(boost::bind(&SubscribeAndPublish::callback2,this, _1, _2));
+            sync.registerCallback(boost::bind(&SubscribeAndPublish::callback,this, _1, _2,_3,_4));
             colpub = nh.advertise<Image>("/camera/rgb/image_rect", 10);
             depthpub = nh.advertise<Image>("/camera/depth_registered/image_rect_raw", 10);
             colinpub = nh.advertise<CameraInfo>("/camera/rgb/camera_info", 10);
@@ -64,7 +64,7 @@ public://
             // https://www.tutorialspoint.com/cplusplus/cpp_date_time.htm
             std::time_t now = time(0);
             char* dt = ctime(&now);
-            debugfilename="/home/meow/Downloads/pic"+std::string(dt)+".txt";
+            debugfilename="/home/irobot/Downloads/pic.txt"+std::string(dt);;
             //https://stackoverflow.com/questions/7352099/stdstring-to-char
             if(std::remove(debugfilename.c_str()) != 0 )
               std::cout<< "Error deleting file"<<std::endl;
@@ -82,7 +82,8 @@ private:
         message_filters::Subscriber<Image> image_sub;
         message_filters::Subscriber<Image> image_sub2;
         message_filters::Subscriber<CameraInfo> cam_info;
-        typedef sync_policies::ApproximateTime<Image,Image,CameraInfo> MySyncPolicy;
+        message_filters::Subscriber<CameraInfo> cam_info2;
+        typedef sync_policies::ExactTime<Image,Image,CameraInfo,CameraInfo> MySyncPolicy;
         Synchronizer<MySyncPolicy> sync;
         std::string debugfilename;
         std::ofstream debugfile;

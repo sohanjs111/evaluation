@@ -24,81 +24,6 @@ import copy
 full_path = os.path.realpath(__file__)
 path, filename = os.path.split(full_path)
 
-def checkfornan(value):
-       if math.isnan(value):            
-              transvalue=0
-       else:
-              transvalue=value
-       return transvalue
-def matfromquat(x,y,z,w,tx,ty,tz):
-	M=np.zeros((4, 4), dtype=np.float64)
-	nom=(w*w + x*x + y*y + z*z)
-	w=w/nom;
-	x=x/nom;
-	y=y/nom;
-	z=z/nom;
-	M[0,0]=1-2*y*y-2*z*z
-	M[0,1]=2*x*y - 2*w*z
-	M[0,2]=2*x*z+2*w*y
-	M[1,0]=2*x*y+2*w*z
-	M[1,1]=1-2*x*x-2*z*z
-	M[1,2]=2*y*z-2*w*x
-	M[2,0]=2*x*z-2*w*y
-	M[2,1]=2*y*z+2*w*x
-	M[2,2]=1-2*x*x-2*y*y
-	M[3,3]=1
-	M[0,3]=tx
-	M[1,3]=ty
-	M[2,3]=tz
-	return M
-def matfromquatfromtf(tf):
-	x=tf.transform.rotation.x
-	y=tf.transform.rotation.y
-	z=tf.transform.rotation.z
-	w=tf.transform.rotation.w
-	tx=tf.transform.translation.x
-	ty=tf.transform.translation.y
-	tz=tf.transform.translation.z
-	return matfromquat(x,y,z,w,tx,ty,tz)
-def quatfrommat(M):	
-	trace=M[0,0] + M[1,1] + M[2,2]
-	q=[0,0,0,0]
-	if (trace > 0):
-		s= 0.5 /math.sqrt(trace+1) 
-		q = [ (M[2,1]-M[1,2])*s, (M[0,2]-M[2,0])*s, (M[1,0]-M[0,1])*s,0.25/s]
-	else:
-		if (M[0,0] >M[1,1] and M[0,0]>M[2,2]):
-				s= 2* math.sqrt(1 + M[0,0] -M[1,1] -M[2,2])
-				q = [ 0.25*s, (M[0,1]+M[1,0])/s, (M[0,2]+M[2,0])/s, (M[2,1]-M[1,2])/s]
-		elif(M[1,1]>M[2,2]):
-				s= 2*math.sqrt(1 -M[0,0] + M[1,1] - M[2,2])
-				q = [ (M[0,1]+M[1,0])/s, 0.25*s, (M[1,2]+M[2,1])/s, (M[0,2]-M[2,0])/s]
-		else:
-				s= 2*math.sqrt(1 -M[0,0] -M[1,1] + M[2,2])
-				q =[ (M[0,2]+M[2,0])/s, (M[1,2]+M[2,1])/s,0.25*s, (M[1,0]-M[0,1])/s ]		
-	return q
-def tffromMat(M,stamp,frameid,childframe):
-       trans=TransformStamped()
-       trans.header.frame_id=frameid
-       trans.header.stamp=stamp
-       trans.child_frame_id=childframe
-       q=quatfrommat(M)
-       trans.transform.rotation.x=q[0]
-       trans.transform.rotation.y=q[1]
-       trans.transform.rotation.z=q[2]
-       trans.transform.rotation.w=q[3]
-       trans.transform.translation.x=M[0,3]
-       trans.transform.translation.y=M[1,3]
-       trans.transform.translation.z=M[2,3]
-       return trans	
-#latest version
-def getinvers2(trans4):	
-	trans4r=TransformStamped()
-	M=matfromquatfromtf(trans4)
-	Minv=np.linalg.inv(M)
-	trans4r=tffromMat(Minv,trans4.header.stamp,trans4.child_frame_id,trans4.header.frame_id)
-	return trans4r
-
 def buildpose(x,y,yaw):
 		posCovMsg = PoseWithCovarianceStamped()	
 		posCovMsg.pose.pose.position.x =x
@@ -110,34 +35,27 @@ def buildpose(x,y,yaw):
 		posCovMsg.pose.pose.orientation.z=quaternion[2]
 		posCovMsg.pose.pose.orientation.w=quaternion[3]	
 		return posCovMsg
-def generatetffromodommgs(msg):
-		 trans4=TransformStamped()
-		 trans4.header.frame_id="odom"
-		 trans4.child_frame_id="base_footprint"
-		 trans4.transform.translation.x=checkfornan(msg.pose.pose.position.x)
-		 trans4.transform.translation.y=checkfornan(msg.pose.pose.position.y)
-		 trans4.transform.translation.z=checkfornan(msg.pose.pose.position.z)
-		 if math.isnan(msg.pose.pose.orientation.x) and math.isnan(msg.pose.pose.orientation.y) and math.isnan(msg.pose.pose.orientation.z) and math.isnan(msg.pose.pose.orientation.w):
-		 	quaternion = tf.transformations.quaternion_from_euler(0, 0, 0)
-		 	trans4.transform.rotation.x=quaternion[0]	
-		 	trans4.transform.rotation.y=quaternion[1]	
-		 	trans4.transform.rotation.z=quaternion[2]	
-		 	trans4.transform.rotation.w=quaternion[3]	
-		 else:
-		 	trans4.transform.rotation.x=checkfornan(msg.pose.pose.orientation.x)
-		 	trans4.transform.rotation.y=checkfornan(msg.pose.pose.orientation.y)
-		 	trans4.transform.rotation.z=checkfornan(msg.pose.pose.orientation.z)
-		 	trans4.transform.rotation.w=checkfornan(msg.pose.pose.orientation.w)
-		 return trans4
+
 def broadcastodomastf(broad,odomsg):
-		static_transformStamped5 = generatetffromodommgs(odomsg)
-		#static_transformStamped5 = getinvers2(static_transformStamped5)
+		static_transformStamped5 = geometry_msgs.msg.TransformStamped()
+		static_transformStamped2 = geometry_msgs.msg.TransformStamped()      
 		static_transformStamped5.header.stamp = odomsg.header.stamp
-		static_transformStamped5.header.frame_id = "odom"
-		static_transformStamped5.child_frame_id = "base_footprint"
-		broad.sendTransform([static_transformStamped5])  
+		static_transformStamped2.header.stamp = odomsg.header.stamp
+		static_transformStamped5.header.frame_id = odomsg.header.frame_id 
+		static_transformStamped5.child_frame_id = odomsg.child_frame_id
+		static_transformStamped5.transform.translation.x = odomsg.pose.pose.position.x
+		static_transformStamped5.transform.translation.y = odomsg.pose.pose.position.y
+		static_transformStamped5.transform.translation.z = odomsg.pose.pose.position.z     
+		static_transformStamped5.transform.rotation.x = -odomsg.pose.pose.orientation.x
+		static_transformStamped5.transform.rotation.y = -odomsg.pose.pose.orientation.y
+		static_transformStamped5.transform.rotation.z = -odomsg.pose.pose.orientation.z
+		static_transformStamped5.transform.rotation.w = -odomsg.pose.pose.orientation.w 
+		static_transformStamped2.transform = static_transformStamped5.transform 
+		static_transformStamped2.header.frame_id = "odom"
+		static_transformStamped2.child_frame_id = "base_footprint"
+		broad.sendTransform([static_transformStamped5,static_transformStamped2])  
   
-def writeposetofile(filename,posetowrite,fromcam,prit):
+def writeposetofile(filename,posetowrite,fromcam):
     angles = tf.transformations.euler_from_quaternion([posetowrite.pose.orientation.x, posetowrite.pose.orientation.y, posetowrite.pose.orientation.z, posetowrite.pose.orientation.w])
     #necessary because the visual camera system applied a -3.14 ... rotation we reverse it here 
     additionalrot=0
@@ -148,20 +66,33 @@ def writeposetofile(filename,posetowrite,fromcam,prit):
     qy =   quat[1]  
     qz =   quat[2]  
     qw =   quat[3] 
-    writetofile(filename,posetowrite.header.stamp,posetowrite.pose.position.x,posetowrite.pose.position.y,posetowrite.pose.position.z,qx,qy,qz,qw,prit)
+    writetofile(filename,posetowrite.header.stamp,posetowrite.pose.position.x,posetowrite.pose.position.y,posetowrite.pose.position.z,qx,qy,qz,qw)
 
-def writetofile(filename,stamp,x,y,z,qx,qy,qz,qw,prit):
+def writetofile(filename,stamp,x,y,z,qx,qy,qz,qw):
 	    with open (path+"/"+filename,"a") as odom_pose_file:
-		odom_pose_file.write(str(stamp.secs)+"."+str(stamp.nsecs).zfill(9)+ "   "+str(format(x,'.11f'))+ "   " +str(format(y,'.11f'))+"   "+str(format(z,'.11f'))+"   "+str(format(qx,'.6f'))+"   "+str(format(qy,'.6f'))+"   "+str(format(qz,'.6f'))+"   "+str(format(qw,'.6f'))+"\n")
-		#odom_pose_file.write(str(stamp.secs)+"."+str(stamp.nsecs).zfill(9)+ "   "+str(format(x,'.11f'))+ "   " +str(format(y,'.11f'))+"   "+str(format(z,'.11f'))+"   "+str(format(qx,'.11f'))+"   "+str(format(qy,'.11f'))+"   "+str(format(qz,'.11f'))+"   "+str(format(qw,'.11f'))+"\n")  
-	    if prit == True:
-	    	print("Position for "+filename+": "+str(x)+" "+str(y)+" "+str(z)+" "+str(qx)+" "+str(qy)+" "+str(qz)+" "+str(qw))
+		odom_pose_file.write(str(stamp.secs)+"."+str(stamp.nsecs).zfill(9)+ "   "+str(format(x,'.11f'))+ "   " +str(format(y,'.11f'))+"   "+str(format(z,'.11f'))+"   "+str(format(qx,'.11f'))+"   "+str(format(qy,'.11f'))+"   "+str(format(qz,'.11f'))+"   "+str(format(qw,'.11f'))+"\n") 
+	    print("Position for "+filename+": "+str(x)+" "+str(y)+" "+str(z))
+
+def rotrobtotrack(starttime):
+       trans=TransformStamped()
+       trans.header.stamp=starttime
+       trans.header.frame_id="tracker"
+       trans.child_frame_id="base_footprint"
+       trans.transform.translation.x=0.0
+       trans.transform.translation.y=0.0
+       trans.transform.translation.z=0.0
+       trans.transform.rotation.x=0.0
+       trans.transform.rotation.y=0.0
+       trans.transform.rotation.z=0 #math.sin(-2.0/180*math.pi/2)
+       trans.transform.rotation.w=1 #math.cos(2.0/180*math.pi/2)
+       return trans
 
 class OdomTopic(object):
-	def __init__(self,trans,odomtobase,broadtf,mal,topic_name = '/odomc'):
+	def __init__(self,trans,trans4,broadtf,mal,topic_name = '/odom'):
 		self.trans = copy.deepcopy(trans)
-		self.odomtobase = copy.deepcopy(odomtobase)  
+		self.trans4 = copy.deepcopy(trans4)  
 		self._topic_name=topic_name
+		self.rottest=rotrobtotrack(trans4.header.stamp)
 		self._sub = rospy.Subscriber(self._topic_name,Odometry,self.topic_callback)
 		self._pub = rospy.Publisher('/odom',Odometry,queue_size=10)
 		# http://lars.mec.ua.pt  eye  scripts  tf_localization			
@@ -177,46 +108,39 @@ class OdomTopic(object):
 		self.broadtf = broadtf
 		self.broadcaster = tf2_ros.TransformBroadcaster()	
 		self.cor=1
-		self.duration=0
 		if mal== 0:
 			self.cor=100       
 	def topic_callback(self, msg):	
 		#odometry twist message is given in base_footprint and we calculate x and y from them so we have to apply two transform to get them into the map frame		
-		#vyl=self.vy			
+		#vyl=self.vy	
 		vang=msg.twist.twist.angular.z	
-	
 		if self.first == 0:
-			self.first = 1	
-			self.x = msg.pose.pose.position.x	
-			self.y = msg.pose.pose.position.y
-			self.stamp = msg.header.stamp
+			self.first = 1			
 		else:
-			self.duration=round((msg.header.stamp.to_sec()-self.stamp.to_sec()),3)
-			vxl=(msg.twist.twist.linear.x)
-			vyl=(msg.twist.twist.linear.y)
+			duration=(msg.header.stamp.to_sec()-self.stamp.to_sec())	
+			vxl=(self.vx+msg.twist.twist.linear.x)/2
+			vyl=(self.vy+msg.twist.twist.linear.y)/2
 			#average over current + new angle which is calculated by current angle + velocity*duration		
 			#avang=self.angz+duration*(self.vangz+vasinu)/4
 			#http://wiki.ros.org/navigation/Tutorials/RobotSetup/Odom do not use an average of the angle but rather just the angle of the previous
-			self.x=round(self.x + self.duration * (math.cos(self.angz) * vxl - vyl * math.sin(self.angz)),5)
-			self.y=round(self.y + self.duration * (math.sin(self.angz) * vxl + vyl * math.cos(self.angz)),5)
-			if vxl != 0.0:
-				self.first=self.first+1
-
-
-		angles = tf.transformations.euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])	 
-		print(str(self.angz+self.vangz*self.duration)+" "+str(angles[2])+" "+str(self.angz)+" "+str(self.vangz)+" "+str(self.angz+self.vangz*self.duration-angles[2]))
-		self.angz = angles[2]
+			self.x=self.x + duration * (math.cos(self.angz) * vxl - vyl * math.sin(self.angz))
+			self.y=self.y + duration * (math.sin(self.angz) * vxl + vyl * math.cos(self.angz))
+			self.angz=self.angz+duration*(self.vangz+vang)/2	
 		self.stamp = msg.header.stamp		
 		self.vx=msg.twist.twist.linear.x
 		self.vy=msg.twist.twist.linear.y
 		self.vangz=vang	
 		#data is in pose system
 		posCovMsg = buildpose(self.x,self.y,self.angz)
+		#rottest currently does not rotate at all 
+		posworot = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.rottest)
+		#transform first into odom 	change back to posCovMsg.pose
+		odompose = tf2_geometry_msgs.do_transform_pose(posworot,self.trans4)
 		odomsg=Odometry()	
 		odomsg.header.frame_id="odom"
 		odomsg.header.stamp=msg.header.stamp
 		odomsg.child_frame_id="base_footprint"
-		odomsg.pose.pose=posCovMsg.pose.pose
+		odomsg.pose.pose=odompose.pose
 		odomsg.pose.covariance=[0.5*self.cor,0,0,0,0,0,
 		0,0.5*self.cor,0,0,0,0,
 		0,0,0.5*self.cor,0,0,0,
@@ -225,23 +149,12 @@ class OdomTopic(object):
 		0,0,0,0,0,0.5*self.cor]
 		odomsg.twist=msg.twist
 		self._pub.publish(odomsg)
-		posworot = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.odomtobase)
-		odomsg.pose=posworot
 		if self.broadtf == 1:
 			broadcastodomastf(self.broadcaster,odomsg)
-		#transform rotation 
 		#transform it map to odom
 		posworot = tf2_geometry_msgs.do_transform_pose(posworot,self.trans)
 		posworot.header.stamp=msg.header.stamp
-		#print(str(msg.twist.twist.linear.x)+" "+str(msg.twist.twist.linear.y))
-		writeposetofile("/wheelodom.txt",posworot,0,False)
-		#only for testing not required 
-		posworot.pose.position.x=msg.twist.twist.linear.x
-		posworot.pose.position.y=msg.twist.twist.linear.y
-		posworot.pose.position.z=angles[2]
-		posworot.pose.orientation.x=self.x
-		posworot.pose.orientation.y=self.y
-		writeposetofile("/odomvel.txt",posworot,0,False)
+		writeposetofile("/wheelodom.txt",posworot,0)
 		#print("estfromodom: ",posCovMsg.pose.position.x,posCovMsg.pose.position.y)
 	
 def settransoftftozero(tf):
@@ -250,24 +163,18 @@ def settransoftftozero(tf):
        		tf.transform.translation.z=0    
 		
 class ImuTopic(object):		
-	def __init__(self,tfmtb,tfotb,tfbti,topic_name = '/imu/data'):
+	def __init__(self,tfmtb,tfotb,tfbtl,tflti,topic_name = '/imu/data'):
 		#Data is given in camera
 		self.tfmtb = copy.deepcopy(tfmtb)
 		self.tfotb = copy.deepcopy(tfotb)  
 		self.tfotbwouttf = TransformStamped()
 		self.tfotbwouttf.transform = copy.deepcopy(tfotb.transform)	 
 		settransoftftozero(self.tfotbwouttf)       		               
-       		self.tfbti =  copy.deepcopy(tfbti)   
-		self.tfbtiwouttf = TransformStamped() 
-		self.tfbtiwouttf = copy.deepcopy(tfbti) 
-		settransoftftozero(self.tfbtiwouttf)  
-		self.tfbtiwoutrot = copy.deepcopy(tfbti)      
-		self.tfbtiwoutrot.transform.rotation.x=0	
-		self.tfbtiwoutrot.transform.rotation.y=0		               
-		self.tfbtiwoutrot.transform.rotation.z=0		               
-		self.tfbtiwoutrot.transform.rotation.w=1		               	               
+       		self.tfbtl =  copy.deepcopy(tfbtl)    
+       		self.tflti = copy.deepcopy(tflti)
 		#we want to transform acceleartion we cannot use transformation part of this tf
-       		settransoftftozero(self.tfbti)   
+       		settransoftftozero(self.tfbtl)   
+       		settransoftftozero(self.tflti)      	       	         	       	         	       	         	       	       
 		self._topic_name=topic_name
 		self._sub = rospy.Subscriber(self._topic_name,Imu,self.imu_callback)
 		self.x = 0
@@ -297,9 +204,12 @@ class ImuTopic(object):
 		posCovMsg.pose.pose.position.z =0		
 		posCovMsg.pose.pose.orientation=posCovforangularvelo.pose.pose.orientation			
 		#angular velocity is not required cause we get a new angular with every measurement	
-		#transform first into base 
-		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tfbtiwouttf)
-		posCovforangularvelo = tf2_geometry_msgs.do_transform_pose(posCovforangularvelo.pose,self.tfbtiwouttf)		
+		#transform first into cameralink 
+		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tflti)
+		posCovforangularvelo = tf2_geometry_msgs.do_transform_pose(posCovforangularvelo.pose,self.tflti)
+		#transform first into baselink 
+		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg,self.tfbtl)
+		posCovforangularvelo = tf2_geometry_msgs.do_transform_pose(posCovforangularvelo,self.tfbtl)
 		angles = tf.transformations.euler_from_quaternion([posCovMsg.pose.orientation.x, posCovMsg.pose.orientation.y, posCovMsg.pose.orientation.z, posCovMsg.pose.orientation.w])
 		if self.first == 0:
 			self.first = 1	
@@ -323,8 +233,7 @@ class ImuTopic(object):
 		#self.messurements=self.messurements+1
 		posCovMsg = buildpose(self.x,self.y,self.yaw)
 		print(posCovMsg.pose.pose.position.x)
-		posforimu = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tfbtiwoutrot)
-		posforimu = tf2_geometry_msgs.do_transform_pose(posforimu,self.tfotbwouttf)
+		posforimu = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tfotbwouttf)
 		#transform into odom
 		posToPubwcov = PoseWithCovarianceStamped()	
 		posToPubwcov.pose.pose=posforimu.pose
@@ -351,8 +260,7 @@ class ImuTopic(object):
 		imumsg.angular_velocity_covariance=[100000, 0, 0, 0, 100000,0, 0,0,100000]
 		imumsg.linear_acceleration_covariance=[100000, 0, 0, 0, 100000,0, 0,0,100000]
 		self.pub3.publish(imumsg)
-		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tfbtiwoutrot)
-		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg,self.tfmtb)
+		posCovMsg = tf2_geometry_msgs.do_transform_pose(posCovMsg.pose,self.tfmtb)
 		#print("estfromimu: ",posCovMsg.pose.position.x,posCovMsg.pose.position.y,self.vx,self.vy,self.ax,self.ay)
 		#for display of average
 		#print("estfromimu: ",posCovMsg.pose.position.x,posCovMsg.pose.position.y,self.vx,self.vy,self.ax,self.ay,self.avgax/self.messurements,self.avgay/self.messurements)
@@ -385,18 +293,29 @@ if __name__ == "__main__":
 	arg1=np.fromstring(sys.argv[1], dtype=float, sep=',')
 	arg2=np.fromstring(sys.argv[2], dtype=float, sep=',')
 	arg3=np.fromstring(sys.argv[3], dtype=float, sep=',')
-
-	mal=int(np.fromstring(sys.argv[5], dtype=float, sep=','))
+	arg4=np.fromstring(sys.argv[4], dtype=float, sep=',')
+	mal=int(np.fromstring(sys.argv[6], dtype=float, sep=','))
 	maptobase=TransformStamped()
 	filltf(maptobase,arg1,"map","base_footpirnt")
 	odomtobase=TransformStamped()
 	filltf(odomtobase,arg2,"odom","base_footprint")	
-	odomob = OdomTopic(maptobase,odomtobase,int(sys.argv[4]),mal)  
-	basetoimu=TransformStamped()
-	filltf(basetoimu,arg3,"base_footprint","imu")	
-	imuob = ImuTopic(maptobase,odomtobase,basetoimu)       
+	odomob = OdomTopic(maptobase,odomtobase,int(sys.argv[5]),mal)  
+	cltocimu=TransformStamped()
+	filltf(cltocimu,arg3,"camera_link","camera_imu_optical_frame")
+	tfbtc=TransformStamped()	
+	tfbtc.header.frame_id="base_footprint"
+	tfbtc.child_frame_id="camera_link"
+	tfbtc.header.stamp=arg4[0]
+	tfbtc.transform.translation.x=arg4[1]
+	tfbtc.transform.translation.y=arg4[2]
+	tfbtc.transform.translation.z=arg4[3] 
+        quat = tf.transformations.quaternion_from_euler(0,0,0)
+	tfbtc.transform.rotation.x=quat[0]
+	tfbtc.transform.rotation.y=quat[1]
+	tfbtc.transform.rotation.z=quat[2]
+	tfbtc.transform.rotation.w=quat[3]
+	imuob = ImuTopic(maptobase,odomtobase,tfbtc,cltocimu)       
 	removefile(path+"/wheelodom.txt")
-	removefile(path+"/odomvel.txt")
 	removefile(path+"/imupose.txt")
 	r = rospy.Rate(10) # 10hz
 	rospy.spin()	
