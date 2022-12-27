@@ -12,20 +12,21 @@ additionlaunchfolder=~/catkin_ws/src/aros/launch
 #path to bags
 bagfolder=~/catkin_ws/src/Rosbags
 #your rosbags
-AR=("$bagfolder/lidarchallenge.bag" "$bagfolder/bestcase.bag")
+AR=("$bagfolder/lidarchallenge.bag" "$bagfolder/bestcase.bag" "$bagfolder/Take04_002.bag" "$bagfolder/Take4_003.bag" "$bagfolder/Take05_001.bag" "$bagfolder/Take05_003.bag")
 #length of the bagfiles change
-ARL=(40 79)
+ARL=(40 79 71 59 77 57)
 #set to 1 if you want to skip a bag in the list
-skipbag=(0 1)
+skipbag=(1 1 1 1 0 0)
 numbag=${#AR[@]}
 #folder of your maps
 mapfolder=/home/meow/share/unity
 #name of your maps
 map=("$mapfolder/0-hectormap-0.yaml" "$mapfolder/mymap.yaml")
 #need to be specified to by the user contains the gt for this rosbag, if you have just a csv file you can generate the file by running gttofile.py 
-gtfile=("$bagfolder/lidarchallengegt.txt" "$bagfolder/bestcasegt.txt")
-#this file will be generated when you set getf to 1 in this script and contains transformations
-tffile=("$sourcefolder/tflidarchallenge.txt" "$sourcefolder/tfbestcase.txt")
+gtfile=("$bagfolder/lidarchallengegt.txt" "$bagfolder/bestcasegt.txt" "$bagfolder/Take04_002gt_unity.txt" "$bagfolder/Take04_003gt.txt" "$bagfolder/Take05_001gt.txt" "$bagfolder/Take05_003gt.txt")
+#this file will be generated when you set getf to 1 in this script and contains transformations it contains transformation from map / ground truth coordinate system into the base_link of the robot
+#only after applying this tf you can compare algorithm performance with ground truth
+tffile=("$sourcefolder/tflidarchallenge.txt" "$sourcefolder/tfbestcase.txt" "$sourcefolder/tfTake04_002.txt" "$sourcefolder/tfTake04_003.txt" "$sourcefolder/tfTake05_001.txt" "$sourcefolder/tfTake05_003.txt")
 #to get the tf (transformation) data and the initialstate of odometry into a file run the script with getf=1 with your dataset once and look inside tf file given above in tffile list
 #To get initalstate we take the first odometry value of the bag and take x,y,z and qx qy qz qw convert to roll pitch yaw 
 #and take good care that the values below are not separated by a enter for linebreaks.
@@ -48,7 +49,8 @@ basetocam=('"1579261351.192527056, 0.45, 0.0, -0.11, 0, 0, 0, 1"')
 basetofloorcam=('"1579261351.192527056, 0.45, 0.0, -0.11, 0, 0, 0, 1"')
 #for evo cortex (real robot) it is , 0.35, -0.26, 0.06, 0, 0, -0.39497015, 0.9186395"
 #for unity sim it is '"1579261351.192527056, 0.0, 0.0, 0.64, 0, 0, 0, 1"'
-basetolidar=('"1579261351.192527056, 0.35, -0.26, 0.06, 0, 0, -0.39497015, 0.9186395"')
+#basetolidar=('"1579261351.192527056, 0.35, -0.26, 0.06, 0, 0, -0.39497015, 0.9186395"')
+basetolidar=('"1579261351.192527056, 0.35, -0.26, 0.0, 0, 0, 0, 1"')
 #we can keep the camera data to zeros and avoid by this having to apply this tf on the gt data to get gt in base_footprint
 #for evo including the transform from mount to camera_link which is 0.0 0.0175 0.0125
 #adjust the below transformation to match your setup
@@ -78,14 +80,14 @@ maxrep=1
 #delay should be at least 3 seconds otherwise for example robot_localization will not have enough time to get the starting position right
 delay=3
 #rate at which the bag shall be played backe
-rate=(1 1 1 1 0.1 0.1 0.1 1 1 0.1 1 1 1 1 1 0.1)
+rate=(1 1 1 1 0.1 0.1 0.1 1 1 1 1 1 1 1 1 0.1)
 #for rtabmap run the removeduplicate.py script to ensure no duplicates get published.
 algnam=('wheelodom' 'lidarhector' 'amcl' 'lidargmap' 'rtabmap' 'ekfall' 'orb' 'imu' 'ohm' 'rf2o' 'laserscanmatcher')
 # 0 1 2 3 4 5 6 7 8 9 10
 #if the order above is changed changes need to be made to keypoint.py and keypoint.py as well for odom i set mal to 0 but also passed 3 to keypoint cause gmapping was running it.
 mal=-1
 #which algorithm to skip set entry in this list to 1
-skip=(1 0 1 1 1 1 1 1 1 1 0)
+skip=(1 1 1 1 1 1 1 1 1 1 0)
 if (( $getf == 1))
 then
 for ((idx=0; idx<$numbag; idx++))
@@ -163,8 +165,8 @@ do
 			myBackgroundXtermPID6=$!
 		fi
 		echo ${camtocoloropt}
-		#xterm -hold -e "rosparam set use_sim_time false;python $sourcefolder/broad.py 0 ${basetocam} ${basetolidar} ${basetoimu} ${camtoimuopt} ${camtodepthopt} ${camtoalddopt} ${camtocolorframe} ${aligneddepthopttocolorframe}" & 
-		xterm -hold -e "rosparam set use_sim_time true;python $sourcefolder/broad.py 0" &
+		xterm -hold -e "rosparam set use_sim_time false;python $sourcefolder/broad.py 0 ${basetocam} ${basetolidar} ${basetoimu} ${camtoimuopt} ${camtodepthopt} ${camtoalddopt} ${camtocolorframe} ${aligneddepthopttocolorframe}" & 
+		#xterm -hold -e "rosparam set use_sim_time true;python $sourcefolder/broad.py 0" &
 		myBackgroundXtermPID1=$!
 		amcladdsid=$myBackgroundXtermPID1
 		ekf1id=$myBackgroundXtermPID1
@@ -287,7 +289,7 @@ do
 		xterm -hold -e "$sourcefolder/./remap" &
 		remap=$!
 		#play the rosbag
-		xterm -hold -e "rosparam set use_sim_time true;rosbag play -k --clock -d ${delay} -r ${rate[k]} ${AR[idx]} /odom:=/odomc /tf:=/tf2" &
+		xterm -hold -e "rosparam set use_sim_time true;rosbag play -k --clock -d ${delay} -r ${rate[k]} ${AR[idx]} /odom:=/odomc" &
 		rosbagPID5=$!
 		#https://unix.stackexchange.com/questions/89712/how-to-convert-floating-point-number-to-integer  
 		#the bonus of one seconds ensures that rounding problems from calculation of the time of the bagplay will not have an effect
@@ -378,12 +380,14 @@ do
 		fi
 		kill $ID
 		kill $myBackgroundXtermPID0
-		kill $myBackgroundXtermPID1
+		kill $myBackgroundXtermPID1ourcefolder/hectormap.pgm "$destinationfolder/$idx-hectormap-$rep.pgm"
+			mv $sourcefolder/hectormap.yaml "$destinationfolder/$idx-hectormap-$rep.yaml"
 		kill $remap
 		kill $ekfPID
 		kill $myBackgroundXtermPID4
 		kill $rosbagPID5 
 		kill $myBackgroundXtermPID6 
+		kill $myBackgroundXtermPID1
 		if (($pause == 1))
 		then
 			kill $ID

@@ -54,7 +54,7 @@ def status(length, percent):
 
 if __name__ == '__main__':
 	writetobag = sys.argv[1]
-	print(writetobag,sys.argv[8])
+	print(writetobag,sys.argv[9])
 	statictfbasetocam=geometry_msgs.msg.TransformStamped()
 	statictfbasetoscanfront=geometry_msgs.msg.TransformStamped()
 	statictfbasetoimu=geometry_msgs.msg.TransformStamped()
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 		filltf(statictfcamtocolorframe,camtocolorlink,"camera_link","openni_camera",0)
  		alignedepthtocolorlink =np.fromstring(sys.argv[9], dtype=float, sep=',')
 		filltf(statictfaligndepthopttocolorframe,alignedepthtocolorlink,"camera_aligned_depth_to_color_frame","camera_color_optical_frame",0)
-	print(statictfbasetocam,statictfbasetoscanfront,statictfbasetoimu,statictfcamtoimuopt,statictfcamtoaligndepthopt)
+	print(statictfbasetoscanfront,statictfbasetoimu,statictfcamtoimuopt)
 	#the use of camera_link to openni_camera is a workaround so that all systems find the right transformations
 	static_transformStamped1 = geometry_msgs.msg.TransformStamped()
 	static_transformStamped1.header.frame_id = "openni_camera"
